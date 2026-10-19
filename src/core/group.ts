@@ -3,6 +3,9 @@ import type { Expense, ExpenseId, ExpenseInput, Group, Person, PersonId } from '
 export const MAX_NAME_LENGTH = 40;
 export const MAX_DESCRIPTION_LENGTH = 80;
 export const MAX_AMOUNT = 100_000_000_00; // 100 miljoner kronor i ören
+export const MAX_PEOPLE = 50;
+export const MAX_EXPENSES = 500;
+const MAX_ID_LENGTH = 8; // id:n är korta bas 36-tal, se nextId
 
 /**
  * Varför en ändring inte gick att göra. Kärnan beskriver bara *vad* som är fel;
@@ -19,7 +22,9 @@ export type GroupError =
   | { readonly code: 'payer-missing' }
   | { readonly code: 'no-sharers' }
   | { readonly code: 'unknown-sharer' }
-  | { readonly code: 'expense-missing' };
+  | { readonly code: 'expense-missing' }
+  | { readonly code: 'too-many-people'; readonly max: number }
+  | { readonly code: 'too-many-expenses'; readonly max: number };
 
 /**
  * Resultatet av en ändring som kan misslyckas. Ogiltig indata ignoreras aldrig tyst:
@@ -58,6 +63,7 @@ export function renameGroup(group: Group, name: string): Group {
 
 /** Lägger till en person, eller returnerar varför det inte gick. */
 export function addPerson(group: Group, name: string): GroupResult {
+  if (group.people.length >= MAX_PEOPLE) return { ok: false, error: { code: 'too-many-people', max: MAX_PEOPLE } };
   const error = validatePersonName(group, name);
   if (error !== null) return { ok: false, error };
   const person: Person = { id: nextId(group.people), name: normalizeName(name) };
@@ -101,6 +107,7 @@ function normalizeExpense(group: Group, input: ExpenseInput): ExpenseInput {
 
 /** Lägger till en utgift, eller returnerar varför det inte gick. */
 export function addExpense(group: Group, input: ExpenseInput): GroupResult {
+  if (group.expenses.length >= MAX_EXPENSES) return { ok: false, error: { code: 'too-many-expenses', max: MAX_EXPENSES } };
   const error = validateExpense(group, input);
   if (error !== null) return { ok: false, error };
   const expense: Expense = { id: nextId(group.expenses), ...normalizeExpense(group, input) };
@@ -132,12 +139,22 @@ export function personName(group: Group, id: PersonId): string | undefined {
   return group.people.find((p) => p.id === id)?.name;
 }
 
-/** Kontrollerar att en grupp (t.ex. inläst från en länk) är internt konsistent. */
+/**
+ * Kontrollerar att en grupp är giltig. Används på data från länkar, som kan vara handgjorda:
+ * samma gränser som när man skapar gruppen i appen gäller, så en länk kan aldrig
+ * innehålla något som appen själv inte hade kunnat skapa.
+ */
 export function isValidGroup(group: Group): boolean {
   const personIds = group.people.map((p) => p.id);
   const expenseIds = group.expenses.map((e) => e.id);
   const unique = (xs: readonly string[]) => new Set(xs).size === xs.length;
+  const validId = (id: string) => /^[0-9a-z]+$/.test(id) && id.length <= MAX_ID_LENGTH;
+  const validName = (name: string) => normalizeName(name) !== '' && name.length <= MAX_NAME_LENGTH;
+
+  if (group.name.length > MAX_NAME_LENGTH) return false;
+  if (group.people.length > MAX_PEOPLE || group.expenses.length > MAX_EXPENSES) return false;
+  if (![...personIds, ...expenseIds].every(validId)) return false;
   if (!unique(personIds) || !unique(expenseIds)) return false;
-  if (group.people.some((p) => normalizeName(p.name) === '')) return false;
-  return group.expenses.every((e) => validateExpense(group, e) === null);
+  if (!group.people.every((p) => validName(p.name))) return false;
+  return group.expenses.every((e) => e.sharedBy.length <= group.people.length && validateExpense(group, e) === null);
 }
