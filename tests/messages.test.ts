@@ -14,6 +14,8 @@ const allErrors: GroupError[] = [
   { code: 'no-sharers' },
   { code: 'unknown-sharer' },
   { code: 'expense-missing' },
+  { code: 'too-many-people', max: 50 },
+  { code: 'too-many-expenses', max: 500 },
 ];
 
 describe('errorMessage', () => {

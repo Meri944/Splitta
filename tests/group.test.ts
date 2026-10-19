@@ -156,3 +156,11 @@ describe('isValidGroup', () => {
     ).toBe(false);
   });
 });
+
+describe('gränser', () => {
+  it('stoppar fler än 50 personer med ett fel', () => {
+    const names = Array.from({ length: 50 }, (_, i) => `Person ${i}`);
+    const full = withPeople(...names);
+    expect(addPerson(full, 'En till')).toEqual({ ok: false, error: { code: 'too-many-people', max: 50 } });
+  });
+});
