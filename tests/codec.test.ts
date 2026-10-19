@@ -45,3 +45,40 @@ describe('url-kodning', () => {
     expect(await decodeGroup('2.abc')).toBeNull();
   });
 });
+
+describe('gränser för data från länkar', () => {
+  const people = (n: number, length = 5) =>
+    Array.from({ length: n }, (_, i) => [i.toString(36), `P${i}`.padEnd(length, 'x')] as [string, string]);
+
+  it('avvisar för långa namn', () => {
+    expect(fromCompact({ v: 1, n: 'x'.repeat(41), p: people(2), e: [] })).toBeNull();
+    expect(fromCompact({ v: 1, n: 'Resa', p: [['1', 'x'.repeat(41)]], e: [] })).toBeNull();
+    expect(fromCompact({ v: 1, n: 'x'.repeat(40), p: [['1', 'x'.repeat(40)]], e: [] })).not.toBeNull();
+  });
+
+  it('avvisar för många personer', () => {
+    expect(fromCompact({ v: 1, n: 'Resa', p: people(50), e: [] })).not.toBeNull();
+    expect(fromCompact({ v: 1, n: 'Resa', p: people(51), e: [] })).toBeNull();
+  });
+
+  it('avvisar konstiga id:n', () => {
+    expect(fromCompact({ v: 1, n: 'Resa', p: [['<script>', 'Anna']], e: [] })).toBeNull();
+    expect(fromCompact({ v: 1, n: 'Resa', p: [['1'.repeat(100), 'Anna']], e: [] })).toBeNull();
+  });
+
+  it('avvisar en dekomprimeringsbomb utan att packa upp allt', async () => {
+    // 50 MB nollor komprimeras till en kort sträng
+    const zeros = new Blob([new Uint8Array(50_000_000)]).stream().pipeThrough(new CompressionStream('deflate-raw'));
+    const bytes = new Uint8Array(await new Response(zeros).arrayBuffer());
+    let binary = '';
+    for (const b of bytes) binary += String.fromCharCode(b);
+    const bomb = '1.' + btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    const start = Date.now();
+    expect(await decodeGroup(bomb)).toBeNull();
+    expect(Date.now() - start < 1000).toBe(true);
+  });
+
+  it('avvisar för långa länkar direkt', async () => {
+    expect(await decodeGroup('1.' + 'A'.repeat(400_000))).toBeNull();
+  });
+});

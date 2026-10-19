@@ -7,6 +7,14 @@ import { fromCompact, toCompact } from './codec';
  */
 const PREFIX = '1.';
 
+/**
+ * Gränser för opålitlig data från länkar. En giltig grupp (högst 50 personer och
+ * 500 utgifter, se core/group.ts) ryms med god marginal; allt större avvisas innan
+ * det packas upp, så att en handgjord länk inte kan fylla minnet (dekomprimeringsbomb).
+ */
+const MAX_ENCODED_LENGTH = 400_000; // tecken i länken
+const MAX_JSON_BYTES = 1_000_000; // byte efter uppackning
+
 function toBase64Url(bytes: Uint8Array): string {
   let binary = '';
   for (let i = 0; i < bytes.length; i += 0x8000) {
@@ -23,23 +31,46 @@ function fromBase64Url(text: string): Uint8Array<ArrayBuffer> {
   return bytes;
 }
 
-async function transform(data: Blob, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {
-  const output = data.stream().pipeThrough(stream);
+async function compress(text: string): Promise<Uint8Array> {
+  const output = new Blob([text]).stream().pipeThrough(new CompressionStream('deflate-raw'));
   return new Uint8Array(await new Response(output).arrayBuffer());
 }
 
+/** Packar upp, men avbryter så fort resultatet blir större än maxBytes. */
+async function decompress(bytes: Uint8Array<ArrayBuffer>, maxBytes: number): Promise<Uint8Array> {
+  const reader = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw')).getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel();
+      throw new RangeError(`Uppackad data är större än ${maxBytes} byte`);
+    }
+    chunks.push(value);
+  }
+  const result = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
+}
+
 export async function encodeGroup(group: Group): Promise<string> {
-  const json = JSON.stringify(toCompact(group));
-  const compressed = await transform(new Blob([json]), new CompressionStream('deflate-raw'));
+  const compressed = await compress(JSON.stringify(toCompact(group)));
   return PREFIX + toBase64Url(compressed);
 }
 
-/** Avkodar en hash-sträng till en grupp. Returnerar null om den är ogiltig. */
+/** Avkodar en hash-sträng till en grupp. Returnerar null om den är ogiltig eller för stor. */
 export async function decodeGroup(encoded: string): Promise<Group | null> {
-  if (!encoded.startsWith(PREFIX)) return null;
+  if (!encoded.startsWith(PREFIX) || encoded.length > MAX_ENCODED_LENGTH) return null;
   try {
     const bytes = fromBase64Url(encoded.slice(PREFIX.length));
-    const json = await transform(new Blob([bytes]), new DecompressionStream('deflate-raw'));
+    const json = await decompress(bytes, MAX_JSON_BYTES);
     return fromCompact(JSON.parse(new TextDecoder().decode(json)));
   } catch {
     return null;
