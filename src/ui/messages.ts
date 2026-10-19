@@ -35,5 +35,9 @@ export function errorMessage(error: GroupError): string {
       return 'Någon av deltagarna finns inte i gruppen.';
     case 'expense-missing':
       return 'Utgiften finns inte längre.';
+    case 'too-many-people':
+      return `En grupp kan ha högst ${error.max} deltagare.`;
+    case 'too-many-expenses':
+      return `En grupp kan ha högst ${error.max} utgifter.`;
   }
 }
