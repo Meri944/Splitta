@@ -13,15 +13,42 @@ export function parseAmount(input: string): Ore | null {
   return Number(kronor) * 100 + Number(ore.padEnd(2, '0'));
 }
 
+/** Kronor och ören för ett belopp utan tecken, t.ex. 123450 → { kronor: "1234", ore: "50" }. */
+function splitKronor(amount: Ore): { kronor: string; ore: string } {
+  const abs = Math.abs(amount);
+  return {
+    kronor: Math.floor(abs / 100).toString(),
+    ore: (abs % 100).toString().padStart(2, '0'),
+  };
+}
+
+const withThousandSeparators = (digits: string): string => digits.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+
 /** Formaterar ören som svenska kronor, t.ex. 123450 → "1 234,50 kr". */
 export function formatAmount(amount: Ore): string {
   const sign = amount < 0 ? '-' : '';
-  const abs = Math.abs(amount);
-  const kronor = Math.floor(abs / 100)
-    .toString()
-    .replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-  const ore = (abs % 100).toString().padStart(2, '0');
-  return `${sign}${kronor},${ore} kr`;
+  const { kronor, ore } = splitKronor(amount);
+  return `${sign}${withThousandSeparators(kronor)},${ore} kr`;
+}
+
+/**
+ * Formaterar ett saldo med tydligt tecken: "+1 234,50 kr", "−800,00 kr" eller "0,00 kr".
+ * Använder det typografiska minustecknet (U+2212).
+ */
+export function formatSignedAmount(amount: Ore): string {
+  const unsigned = formatAmount(Math.abs(amount));
+  if (amount > 0) return `+${unsigned}`;
+  if (amount < 0) return `−${unsigned}`;
+  return unsigned;
+}
+
+/**
+ * Formaterar ören för ett redigerbart fält, t.ex. 123450 → "1234,50".
+ * Utdata kan alltid läsas tillbaka med parseAmount.
+ */
+export function formatAmountForInput(amount: Ore): string {
+  const { kronor, ore } = splitKronor(amount);
+  return `${kronor},${ore}`;
 }
 
 /**

@@ -1,83 +1,57 @@
 import './style.css';
-import type { AppEvent, AppState } from './ui/state';
-import { initialState, update } from './ui/state';
-import { render } from './ui/view';
+import type { Group } from './core/types';
+import { copyText } from './storage/clipboard';
 import { currentUrl, decodeGroup, encodeGroup, readHash, writeHash } from './storage/url';
+import type { AppState, Notice } from './ui/state';
+import { initialState } from './ui/state';
+import { createStore } from './ui/store';
+import { render, updateShareUrl } from './ui/view';
 
-/**
- * Kopplar ihop lagren: läser gruppen från länken, renderar,
- * och skriver tillbaka gruppen till länken efter varje ändring.
- */
+/** Kopplar ihop lagren: länken (storage), tillståndet (store) och gränssnittet (view). */
+
+const LINK_ERROR: Notice = {
+  target: 'load',
+  kind: 'error',
+  text: 'Länken kunde inte läsas. Den kan vara ofullständig, kontrollera att du kopierat hela.',
+};
+
 async function loadFromHash(): Promise<AppState> {
   const hash = readHash();
   if (hash === '') return initialState;
   const group = await decodeGroup(hash);
-  if (group) return { ...initialState, group };
-  return {
-    ...initialState,
-    notice: { target: 'load', kind: 'error', text: 'Länken kunde inte läsas. Den kan vara ofullständig, kontrollera att du kopierat hela.' },
-  };
+  return group ? { ...initialState, group } : { ...initialState, notice: LINK_ERROR };
 }
 
-async function persist(state: AppState): Promise<void> {
-  writeHash(state.group ? await encodeGroup(state.group) : '');
-}
-
-async function copyToClipboard(text: string): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text);
-    return true;
-  } catch {
-    return false;
-  }
+async function saveToHash(group: Group | null): Promise<void> {
+  writeHash(group ? await encodeGroup(group) : '');
+  updateShareUrl(currentUrl());
 }
 
 async function start(root: HTMLElement): Promise<void> {
-  let state = await loadFromHash();
-  let queue = Promise.resolve();
+  const store = createStore(await loadFromHash(), saveToHash);
 
-  const draw = () =>
-    render(root, {
-      state,
-      dispatch,
-      shareUrl: currentUrl(),
-      onCopyLink: () => {
-        // Vänta in eventuell pågående skrivning så att den senaste länken kopieras.
-        void queue.then(() => copyToClipboard(currentUrl())).then((ok) =>
-          dispatch({
-            type: 'notify',
-            notice: ok
-              ? { target: 'share', kind: 'info', text: 'Länken är kopierad.' }
-              : { target: 'share', kind: 'error', text: 'Kunde inte kopiera. Markera länken och kopiera den själv.' },
-          }),
-        );
-      },
+  const copyLink = async () => {
+    await store.flush(); // så att den senaste versionen av länken kopieras
+    const ok = await copyText(currentUrl());
+    store.dispatch({
+      type: 'notify',
+      notice: ok
+        ? { target: 'share', kind: 'info', text: 'Länken är kopierad.' }
+        : { target: 'share', kind: 'error', text: 'Kunde inte kopiera. Markera länken och kopiera den själv.' },
     });
+  };
 
-  // Rendera direkt så att gränssnittet aldrig väntar på komprimeringen.
-  // Länken skrivs efteråt, i en kö så att den alltid speglar den senaste ändringen.
-  function dispatch(event: AppEvent): void {
-    const previous = state;
-    state = update(state, event);
-    draw();
-    if (state.group === previous.group) return;
-    const snapshot = state;
-    queue = queue.then(async () => {
-      await persist(snapshot);
-      const shareInput = document.getElementById('share-url');
-      if (shareInput instanceof HTMLInputElement) shareInput.value = currentUrl();
-    });
-  }
+  const draw = (state: AppState) =>
+    render(root, { state, dispatch: store.dispatch, shareUrl: currentUrl(), onCopyLink: () => void copyLink() });
+
+  store.subscribe(draw);
 
   // Om någon klistrar in en annan grupplänk i samma flik.
   window.addEventListener('hashchange', () => {
-    queue = queue.then(async () => {
-      state = await loadFromHash();
-      draw();
-    });
+    void store.flush().then(loadFromHash).then(store.replace);
   });
 
-  draw();
+  draw(store.getState());
 }
 
 const root = document.querySelector<HTMLElement>('#app');

@@ -1,6 +1,6 @@
 import { computeBalances } from '../core/balance';
 import { isPersonInvolved, personName, totalSpent } from '../core/group';
-import { formatAmount } from '../core/money';
+import { formatAmount, formatAmountForInput, formatSignedAmount } from '../core/money';
 import { settleDebts } from '../core/settle';
 import type { Expense, Group, Person } from '../core/types';
 import { h } from './dom';
@@ -133,7 +133,7 @@ function renderExpenseForm({ state, dispatch }: ViewContext, group: Group): HTML
     });
   };
 
-  const amountValue = editing ? formatAmount(editing.amount).replace(/ kr$/, '').replace(/ /g, '') : '';
+  const amountValue = editing ? formatAmountForInput(editing.amount) : '';
 
   return h(
     'form',
@@ -307,8 +307,12 @@ function renderReceipt(context: ViewContext, group: Group): HTMLElement {
   const balanceRow = (person: Person) => {
     const amount = balances.get(person.id) ?? 0;
     const tone = amount > 0 ? 'plus' : amount < 0 ? 'minus' : 'zero';
-    const text = amount > 0 ? `+${formatAmount(amount)}` : amount < 0 ? `−${formatAmount(-amount)}` : formatAmount(0);
-    return h('div', { class: 'balance' }, h('dt', {}, person.name), h('dd', { class: `amount ${tone}` }, text));
+    return h(
+      'div',
+      { class: 'balance' },
+      h('dt', {}, person.name),
+      h('dd', { class: `amount ${tone}` }, formatSignedAmount(amount)),
+    );
   };
 
   return h(
@@ -394,6 +398,12 @@ function renderGroup(context: ViewContext, group: Group): HTMLElement {
       renderReceipt(context, group),
     ),
   );
+}
+
+/** Uppdaterar länken i delningsfältet utan att rendera om, t.ex. när en sparning blivit klar. */
+export function updateShareUrl(url: string): void {
+  const input = document.getElementById('share-url');
+  if (input instanceof HTMLInputElement) input.value = url;
 }
 
 export function render(root: HTMLElement, context: ViewContext): void {

@@ -4,6 +4,12 @@ export const MAX_NAME_LENGTH = 40;
 export const MAX_DESCRIPTION_LENGTH = 80;
 export const MAX_AMOUNT = 100_000_000_00; // 100 miljoner kronor i ören
 
+/**
+ * Resultatet av en ändring som kan misslyckas. Ogiltig indata ignoreras aldrig tyst:
+ * anroparen får antingen den nya gruppen eller ett felmeddelande att visa.
+ */
+export type GroupResult = { readonly ok: true; readonly group: Group } | { readonly ok: false; readonly error: string };
+
 /** Nästa lediga id: högsta befintliga id + 1, i bas 36 för korta länkar. */
 function nextId(items: readonly { readonly id: string }[]): string {
   const max = items.reduce((m, item) => Math.max(m, Number.parseInt(item.id, 36) || 0), 0);
@@ -32,11 +38,12 @@ export function renameGroup(group: Group, name: string): Group {
   return normalized === '' ? group : { ...group, name: normalized.slice(0, MAX_NAME_LENGTH) };
 }
 
-/** Lägger till en person. Ogiltiga namn ignoreras (validera först med validatePersonName). */
-export function addPerson(group: Group, name: string): Group {
-  if (validatePersonName(group, name) !== null) return group;
+/** Lägger till en person, eller returnerar varför det inte gick. */
+export function addPerson(group: Group, name: string): GroupResult {
+  const error = validatePersonName(group, name);
+  if (error !== null) return { ok: false, error };
   const person: Person = { id: nextId(group.people), name: normalizeName(name) };
-  return { ...group, people: [...group.people, person] };
+  return { ok: true, group: { ...group, people: [...group.people, person] } };
 }
 
 export function isPersonInvolved(group: Group, id: PersonId): boolean {
@@ -75,19 +82,23 @@ function normalizeExpense(group: Group, input: ExpenseInput): ExpenseInput {
   };
 }
 
-/** Lägger till en utgift. Ogiltig indata ignoreras (validera först med validateExpense). */
-export function addExpense(group: Group, input: ExpenseInput): Group {
-  if (validateExpense(group, input) !== null) return group;
+/** Lägger till en utgift, eller returnerar varför det inte gick. */
+export function addExpense(group: Group, input: ExpenseInput): GroupResult {
+  const error = validateExpense(group, input);
+  if (error !== null) return { ok: false, error };
   const expense: Expense = { id: nextId(group.expenses), ...normalizeExpense(group, input) };
-  return { ...group, expenses: [...group.expenses, expense] };
+  return { ok: true, group: { ...group, expenses: [...group.expenses, expense] } };
 }
 
-export function updateExpense(group: Group, id: ExpenseId, input: ExpenseInput): Group {
-  if (validateExpense(group, input) !== null) return group;
+/** Ersätter en befintlig utgift, eller returnerar varför det inte gick. */
+export function updateExpense(group: Group, id: ExpenseId, input: ExpenseInput): GroupResult {
+  if (!group.expenses.some((e) => e.id === id)) return { ok: false, error: 'Utgiften finns inte längre.' };
+  const error = validateExpense(group, input);
+  if (error !== null) return { ok: false, error };
   const updated = normalizeExpense(group, input);
   return {
-    ...group,
-    expenses: group.expenses.map((e) => (e.id === id ? { id, ...updated } : e)),
+    ok: true,
+    group: { ...group, expenses: group.expenses.map((e) => (e.id === id ? { id, ...updated } : e)) },
   };
 }
 
