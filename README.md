@@ -6,11 +6,17 @@ Dela gruppkostnader enkelt – ingen inloggning, ingen installation. Lägg in ve
 
 ## Funktioner (MVP)
 
-- [ ] Skapa grupp med deltagare
-- [ ] Lägga till, redigera och ta bort utgifter
-- [ ] Saldo per person
-- [ ] Minimerad lista med betalningar
-- [ ] Dela gruppen via länk
+- [x] Skapa grupp med deltagare
+- [x] Lägga till, redigera och ta bort utgifter
+- [x] Saldo per person
+- [x] Minimerad lista med betalningar
+- [x] Dela gruppen via länk
+
+## Hur det fungerar
+
+- **Pengar räknas i ören** (heltal), aldrig flyttal. Ojämna belopp fördelas öre för öre så att summan alltid stämmer exakt.
+- **Betalningarna minimeras** genom att först para ihop exakt matchande belopp och sedan låta största skulden betala till den som ska ha mest. Det ger högst *n − 1* betalningar för *n* personer.
+- **Ingen server.** Gruppen komprimeras (`deflate-raw`) och läggs i länkens `#`-del, som aldrig skickas till någon server. Formatet är versionerat så att gamla länkar fortsätter fungera.
 
 ## Kom igång
 
