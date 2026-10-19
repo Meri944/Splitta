@@ -3,6 +3,10 @@ import type { GroupError } from '../core/group';
 /** Standardnamn när användaren inte skriver något gruppnamn. */
 export const DEFAULT_GROUP_NAME = 'Min grupp';
 
+/** Visas när gruppen inte kunde sparas i länken. */
+export const SAVE_ERROR =
+  'Den senaste ändringen kunde inte sparas i länken. Gör en ändring till för att försöka igen, eller använd en nyare webbläsare.';
+
 /** Visas när en person som inte längre finns i gruppen refereras. */
 export const UNKNOWN_PERSON = 'Okänd';
 
