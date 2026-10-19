@@ -13,9 +13,17 @@ import {
   validateExpense,
   validatePersonName,
 } from '../src/core/group';
+import type { GroupResult } from '../src/core/group';
 import type { Group } from '../src/core/types';
 
-const withPeople = (...names: string[]): Group => names.reduce(addPerson, createGroup('Resa'));
+/** Hämtar gruppen ur ett lyckat resultat, annars fallerar testet. */
+function unwrap(result: GroupResult): Group {
+  if (!result.ok) throw new Error(`Oväntat fel: ${result.error}`);
+  return result.group;
+}
+
+const withPeople = (...names: string[]): Group =>
+  names.reduce((g, name) => unwrap(addPerson(g, name)), createGroup('Resa'));
 
 describe('createGroup och renameGroup', () => {
   it('skapar en tom grupp med trimmat namn', () => {
@@ -45,12 +53,12 @@ describe('personer', () => {
     expect(validatePersonName(g, '  ')).not.toBeNull();
     expect(validatePersonName(g, 'anna')).not.toBeNull();
     expect(validatePersonName(g, 'Erik')).toBeNull();
-    expect(addPerson(g, 'ANNA')).toBe(g);
+    expect(addPerson(g, 'ANNA')).toEqual({ ok: false, error: 'ANNA finns redan i gruppen.' });
   });
 
   it('muterar inte originalgruppen', () => {
     const g = withPeople('Anna');
-    addPerson(g, 'Erik');
+    unwrap(addPerson(g, 'Erik'));
     expect(g.people).toHaveLength(1);
   });
 
@@ -63,7 +71,7 @@ describe('personer', () => {
   it('tar inte bort en person som är med i en utgift', () => {
     const g0 = withPeople('Anna', 'Erik');
     const [anna, erik] = g0.people.map((p) => p.id) as [string, string];
-    const g = addExpense(g0, { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [erik] });
+    const g = unwrap(addExpense(g0, { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [erik] }));
     expect(isPersonInvolved(g, erik)).toBe(true);
     expect(removePerson(g, erik)).toBe(g);
   });
@@ -74,7 +82,7 @@ describe('utgifter', () => {
   const [anna, erik, sara] = g0.people.map((p) => p.id) as [string, string, string];
 
   it('lägger till en utgift och sorterar deltagare i gruppens ordning', () => {
-    const g = addExpense(g0, { description: ' Mat ', amount: 30000, paidBy: anna, sharedBy: [sara, anna, sara] });
+    const g = unwrap(addExpense(g0, { description: ' Mat ', amount: 30000, paidBy: anna, sharedBy: [sara, anna, sara] }));
     expect(g.expenses).toHaveLength(1);
     expect(g.expenses[0]).toMatchObject({ description: 'Mat', sharedBy: [anna, sara] });
     expect(totalSpent(g)).toBe(30000);
@@ -89,19 +97,27 @@ describe('utgifter', () => {
     expect(validateExpense(g0, { ...base, paidBy: 'x' })).not.toBeNull();
     expect(validateExpense(g0, { ...base, sharedBy: [] })).not.toBeNull();
     expect(validateExpense(g0, { ...base, sharedBy: ['x'] })).not.toBeNull();
-    expect(addExpense(g0, { ...base, amount: -1 })).toBe(g0);
+    expect(addExpense(g0, { ...base, amount: -1 })).toEqual({ ok: false, error: 'Beloppet måste vara större än 0 kr.' });
   });
 
   it('uppdaterar och tar bort utgifter', () => {
-    const g1 = addExpense(g0, { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [anna, erik] });
+    const g1 = unwrap(addExpense(g0, { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [anna, erik] }));
     const id = g1.expenses[0]!.id;
-    const g2 = updateExpense(g1, id, { description: 'Middag', amount: 200, paidBy: erik, sharedBy: [erik] });
+    const g2 = unwrap(updateExpense(g1, id, { description: 'Middag', amount: 200, paidBy: erik, sharedBy: [erik] }));
     expect(g2.expenses[0]).toEqual({ id, description: 'Middag', amount: 200, paidBy: erik, sharedBy: [erik] });
     expect(removeExpense(g2, id).expenses).toHaveLength(0);
   });
 
+  it('ger fel i stället för att tyst ignorera ogiltiga ändringar', () => {
+    const g1 = unwrap(addExpense(g0, { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [anna] }));
+    const id = g1.expenses[0]!.id;
+    const valid = { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [anna] };
+    expect(updateExpense(g1, 'finns-inte', valid)).toEqual({ ok: false, error: 'Utgiften finns inte längre.' });
+    expect(updateExpense(g1, id, { ...valid, sharedBy: [] }).ok).toBe(false);
+  });
+
   it('ger nya utgifter unika id även efter borttagning', () => {
-    const add = (g: Group) => addExpense(g, { description: 'X', amount: 1, paidBy: anna, sharedBy: [anna] });
+    const add = (g: Group) => unwrap(addExpense(g, { description: 'X', amount: 1, paidBy: anna, sharedBy: [anna] }));
     const g = add(add(g0));
     const ids = add(removeExpense(g, g.expenses[0]!.id)).expenses.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
@@ -112,7 +128,7 @@ describe('isValidGroup', () => {
   it('godkänner en konsistent grupp', () => {
     const g0 = withPeople('Anna', 'Erik');
     const anna = g0.people[0]!.id;
-    expect(isValidGroup(addExpense(g0, { description: 'Mat', amount: 1, paidBy: anna, sharedBy: [anna] }))).toBe(true);
+    expect(isValidGroup(unwrap(addExpense(g0, { description: 'Mat', amount: 1, paidBy: anna, sharedBy: [anna] })))).toBe(true);
   });
 
   it('underkänner dubbla id och trasiga referenser', () => {
