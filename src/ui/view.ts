@@ -4,9 +4,12 @@ import { formatAmount, formatAmountForInput, formatSignedAmount } from '../core/
 import { settleDebts } from '../core/settle';
 import type { Expense, Group, Person } from '../core/types';
 import { h } from './dom';
+import { UNKNOWN_PERSON } from './messages';
 import type { AppEvent, AppState, Notice, NoticeTarget } from './state';
 
 export type Dispatch = (event: AppEvent) => void;
+
+const nameOf = (group: Group, id: string): string => personName(group, id) ?? UNKNOWN_PERSON;
 
 export interface ViewContext {
   readonly state: AppState;
@@ -218,7 +221,7 @@ function renderExpenseForm({ state, dispatch }: ViewContext, group: Group): HTML
 
 function describeSharing(group: Group, expense: Expense): string {
   if (expense.sharedBy.length === group.people.length && group.people.length > 1) return 'delas av alla';
-  const names = expense.sharedBy.map((id) => personName(group, id));
+  const names = expense.sharedBy.map((id) => nameOf(group, id));
   if (names.length === 1) return `för ${names[0]}`;
   return `delas av ${names.slice(0, -1).join(', ')} och ${names[names.length - 1]}`;
 }
@@ -234,7 +237,7 @@ function renderExpenses(context: ViewContext, group: Group): HTMLElement {
         'div',
         { class: 'expense-main' },
         h('span', { class: 'expense-title' }, expense.description),
-        h('span', { class: 'expense-meta' }, `${personName(group, expense.paidBy)} betalade, ${describeSharing(group, expense)}`),
+        h('span', { class: 'expense-meta' }, `${nameOf(group, expense.paidBy)} betalade, ${describeSharing(group, expense)}`),
       ),
       h('span', { class: 'amount' }, formatAmount(expense.amount)),
       h(
@@ -295,9 +298,9 @@ function renderReceipt(context: ViewContext, group: Group): HTMLElement {
               h(
                 'span',
                 { class: 'transfer-names' },
-                h('strong', {}, personName(group, t.from)),
+                h('strong', {}, nameOf(group, t.from)),
                 h('span', { class: 'transfer-verb' }, ' swishar '),
-                h('strong', {}, personName(group, t.to)),
+                h('strong', {}, nameOf(group, t.to)),
               ),
               h('span', { class: 'amount' }, formatAmount(t.amount)),
             ),
