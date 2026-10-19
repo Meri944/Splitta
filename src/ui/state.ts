@@ -1,14 +1,4 @@
-import {
-  addExpense,
-  addPerson,
-  createGroup,
-  removeExpense,
-  removePerson,
-  renameGroup,
-  updateExpense,
-  validateExpense,
-  validatePersonName,
-} from '../core/group';
+import { addExpense, addPerson, createGroup, removeExpense, removePerson, renameGroup, updateExpense } from '../core/group';
 import { parseAmount } from '../core/money';
 import type { ExpenseId, ExpenseInput, Group, PersonId } from '../core/types';
 
@@ -64,9 +54,9 @@ function handleCreate(name: string, peopleText: string): AppState {
   }
   let group = createGroup(name);
   for (const person of names) {
-    const problem = validatePersonName(group, person);
-    if (problem) return { ...initialState, notice: error('create', problem) };
-    group = addPerson(group, person);
+    const result = addPerson(group, person);
+    if (!result.ok) return { ...initialState, notice: error('create', result.error) };
+    group = result.group;
   }
   return { ...initialState, group, focus: 'expense-description' };
 }
@@ -82,13 +72,11 @@ function handleSaveExpense(state: AppState, group: Group, event: Extract<AppEven
     paidBy: event.paidBy,
     sharedBy: event.sharedBy,
   };
-  const problem = validateExpense(group, input);
-  if (problem) return { ...state, notice: error('expense', problem) };
-
-  const next = state.editingExpenseId
+  const result = state.editingExpenseId
     ? updateExpense(group, state.editingExpenseId, input)
     : addExpense(group, input);
-  return { group: next, editingExpenseId: null, notice: null, focus: 'expense-description' };
+  if (!result.ok) return { ...state, notice: error('expense', result.error) };
+  return { group: result.group, editingExpenseId: null, notice: null, focus: 'expense-description' };
 }
 
 /** Ren funktion: räknar ut nästa tillstånd från ett tillstånd och en händelse. */
@@ -106,9 +94,9 @@ export function update(state: AppState, event: AppEvent): AppState {
     case 'renameGroup':
       return { ...base, group: renameGroup(group, event.name) };
     case 'addPerson': {
-      const problem = validatePersonName(group, event.name);
-      if (problem) return { ...base, notice: error('person', problem), focus: 'person-name' };
-      return { ...base, group: addPerson(group, event.name), focus: 'person-name' };
+      const result = addPerson(group, event.name);
+      if (!result.ok) return { ...base, notice: error('person', result.error), focus: 'person-name' };
+      return { ...base, group: result.group, focus: 'person-name' };
     }
     case 'removePerson':
       return { ...base, group: removePerson(group, event.id) };
