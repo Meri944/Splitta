@@ -30,8 +30,12 @@ describe('createGroup och renameGroup', () => {
     expect(createGroup('  Fjällresa  ')).toEqual({ name: 'Fjällresa', people: [], expenses: [] });
   });
 
-  it('använder standardnamn om namnet är tomt', () => {
-    expect(createGroup('   ').name).toBe('Min grupp');
+  it('lämnar tomt namn tomt – standardnamnet väljs i UI-lagret', () => {
+    expect(createGroup('   ').name).toBe('');
+  });
+
+  it('kortar av för långa gruppnamn', () => {
+    expect(createGroup('x'.repeat(100)).name).toHaveLength(40);
   });
 
   it('byter namn men ignorerar tomt namn', () => {
@@ -53,7 +57,7 @@ describe('personer', () => {
     expect(validatePersonName(g, '  ')).not.toBeNull();
     expect(validatePersonName(g, 'anna')).not.toBeNull();
     expect(validatePersonName(g, 'Erik')).toBeNull();
-    expect(addPerson(g, 'ANNA')).toEqual({ ok: false, error: 'ANNA finns redan i gruppen.' });
+    expect(addPerson(g, 'ANNA')).toEqual({ ok: false, error: { code: 'name-taken', name: 'ANNA' } });
   });
 
   it('muterar inte originalgruppen', () => {
@@ -97,7 +101,7 @@ describe('utgifter', () => {
     expect(validateExpense(g0, { ...base, paidBy: 'x' })).not.toBeNull();
     expect(validateExpense(g0, { ...base, sharedBy: [] })).not.toBeNull();
     expect(validateExpense(g0, { ...base, sharedBy: ['x'] })).not.toBeNull();
-    expect(addExpense(g0, { ...base, amount: -1 })).toEqual({ ok: false, error: 'Beloppet måste vara större än 0 kr.' });
+    expect(addExpense(g0, { ...base, amount: -1 })).toEqual({ ok: false, error: { code: 'amount-not-positive' } });
   });
 
   it('uppdaterar och tar bort utgifter', () => {
@@ -112,7 +116,7 @@ describe('utgifter', () => {
     const g1 = unwrap(addExpense(g0, { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [anna] }));
     const id = g1.expenses[0]!.id;
     const valid = { description: 'Mat', amount: 100, paidBy: anna, sharedBy: [anna] };
-    expect(updateExpense(g1, 'finns-inte', valid)).toEqual({ ok: false, error: 'Utgiften finns inte längre.' });
+    expect(updateExpense(g1, 'finns-inte', valid)).toEqual({ ok: false, error: { code: 'expense-missing' } });
     expect(updateExpense(g1, id, { ...valid, sharedBy: [] }).ok).toBe(false);
   });
 
@@ -121,6 +125,14 @@ describe('utgifter', () => {
     const g = add(add(g0));
     const ids = add(removeExpense(g, g.expenses[0]!.id)).expenses.map((e) => e.id);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+});
+
+describe('felkoder', () => {
+  it('returnerar strukturerade fel, inte användartexter', () => {
+    const g = withPeople('Anna');
+    expect(validatePersonName(g, '')).toEqual({ code: 'name-empty' });
+    expect(validatePersonName(g, 'x'.repeat(41))).toEqual({ code: 'name-too-long', max: 40 });
   });
 });
 
