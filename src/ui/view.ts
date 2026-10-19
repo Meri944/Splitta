@@ -400,6 +400,12 @@ function renderGroup(context: ViewContext, group: Group): HTMLElement {
   );
 }
 
+/** Uppdaterar länken i delningsfältet utan att rendera om, t.ex. när en sparning blivit klar. */
+export function updateShareUrl(url: string): void {
+  const input = document.getElementById('share-url');
+  if (input instanceof HTMLInputElement) input.value = url;
+}
+
 export function render(root: HTMLElement, context: ViewContext): void {
   const { group } = context.state;
   root.replaceChildren(group ? renderGroup(context, group) : renderStart(context));
