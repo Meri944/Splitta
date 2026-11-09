@@ -1,4 +1,5 @@
 import type { GroupError } from '../core/group';
+import { formatAmount } from '../core/money';
 
 /** Standardnamn när användaren inte skriver något gruppnamn. */
 export const DEFAULT_GROUP_NAME = 'Min grupp';
@@ -6,6 +7,10 @@ export const DEFAULT_GROUP_NAME = 'Min grupp';
 /** Visas när gruppen inte kunde sparas i länken. */
 export const SAVE_ERROR =
   'Den senaste ändringen kunde inte sparas i länken. Gör en ändring till för att försöka igen, eller använd en nyare webbläsare.';
+
+/** Visas när webbläsaren saknar stöd för att packa länkar, så gruppen inte kan sparas eller öppnas. */
+export const UNSUPPORTED_BROWSER =
+  'Din webbläsare är för gammal för Splitta-länkar. Uppdatera webbläsaren, eller öppna länken i en annan, så fungerar det.';
 
 /** Visas när en person som inte längre finns i gruppen refereras. */
 export const UNKNOWN_PERSON = 'Okänd';
@@ -30,7 +35,7 @@ export function errorMessage(error: GroupError): string {
     case 'amount-not-positive':
       return 'Beloppet måste vara större än 0 kr.';
     case 'amount-too-large':
-      return 'Beloppet är för stort.';
+      return `Beloppet får vara högst ${formatAmount(error.max)}.`;
     case 'payer-missing':
       return 'Välj vem som betalade.';
     case 'no-sharers':

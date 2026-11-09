@@ -15,6 +15,14 @@ describe('parseAmount', () => {
     expect(parseAmount(' 1 200,50 ')).toBe(120050);
   });
 
+  it('tål valutasuffix som "kr", ":-" och "SEK"', () => {
+    expect(parseAmount('249 kr')).toBe(24900);
+    expect(parseAmount('249kr.')).toBe(24900);
+    expect(parseAmount('249:-')).toBe(24900);
+    expect(parseAmount('1 200,50 SEK')).toBe(120050);
+    expect(parseAmount('kr')).toBeNull();
+  });
+
   it('accepterar noll', () => {
     expect(parseAmount('0')).toBe(0);
   });

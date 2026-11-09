@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fromCompact, toCompact } from '../src/storage/codec';
-import { decodeGroup, encodeGroup } from '../src/storage/url';
+import { decodeGroup, encodeGroup, supportsLinkCompression } from '../src/storage/url';
 import type { Group } from '../src/core/types';
 
 const group: Group = {
@@ -80,5 +80,22 @@ describe('gränser för data från länkar', () => {
 
   it('avvisar för långa länkar direkt', async () => {
     expect(await decodeGroup('1.' + 'A'.repeat(400_000))).toBeNull();
+  });
+});
+
+describe('supportsLinkCompression', () => {
+  it('är sant när CompressionStream och DecompressionStream finns', () => {
+    expect(supportsLinkCompression()).toBe(true);
+  });
+
+  it('är falskt i en webbläsare utan stöd', () => {
+    const original = globalThis.CompressionStream;
+    // @ts-expect-error simulerar en äldre webbläsare
+    delete globalThis.CompressionStream;
+    try {
+      expect(supportsLinkCompression()).toBe(false);
+    } finally {
+      globalThis.CompressionStream = original;
+    }
   });
 });

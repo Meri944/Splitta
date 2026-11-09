@@ -60,6 +60,14 @@ async function decompress(bytes: Uint8Array<ArrayBuffer>, maxBytes: number): Pro
   return result;
 }
 
+/**
+ * Om webbläsaren kan packa och packa upp länkar. Saknas i äldre webbläsare
+ * (t.ex. Safari före 16.4), och då kan grupper varken sparas i eller läsas från länken.
+ */
+export function supportsLinkCompression(): boolean {
+  return typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
+}
+
 export async function encodeGroup(group: Group): Promise<string> {
   const compressed = await compress(JSON.stringify(toCompact(group)));
   return PREFIX + toBase64Url(compressed);

@@ -18,7 +18,7 @@ export type GroupError =
   | { readonly code: 'description-empty' }
   | { readonly code: 'description-too-long'; readonly max: number }
   | { readonly code: 'amount-not-positive' }
-  | { readonly code: 'amount-too-large' }
+  | { readonly code: 'amount-too-large'; readonly max: number }
   | { readonly code: 'payer-missing' }
   | { readonly code: 'no-sharers' }
   | { readonly code: 'unknown-sharer' }
@@ -87,7 +87,7 @@ export function validateExpense(group: Group, input: ExpenseInput): GroupError |
   if (description === '') return { code: 'description-empty' };
   if (description.length > MAX_DESCRIPTION_LENGTH) return { code: 'description-too-long', max: MAX_DESCRIPTION_LENGTH };
   if (!Number.isInteger(input.amount) || input.amount <= 0) return { code: 'amount-not-positive' };
-  if (input.amount > MAX_AMOUNT) return { code: 'amount-too-large' };
+  if (input.amount > MAX_AMOUNT) return { code: 'amount-too-large', max: MAX_AMOUNT };
   if (!ids.has(input.paidBy)) return { code: 'payer-missing' };
   if (input.sharedBy.length === 0) return { code: 'no-sharers' };
   if (!input.sharedBy.every((id) => ids.has(id))) return { code: 'unknown-sharer' };
