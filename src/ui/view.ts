@@ -1,12 +1,15 @@
 import { computeBalances } from '../core/balance';
-import { isPersonInvolved, personName, totalSpent } from '../core/group';
+import { MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, isPersonInvolved, personName, totalSpent } from '../core/group';
 import { formatAmount, formatAmountForInput, formatSignedAmount } from '../core/money';
 import { settleDebts } from '../core/settle';
 import type { Expense, Group, Person } from '../core/types';
 import { h } from './dom';
+import { UNKNOWN_PERSON } from './messages';
 import type { AppEvent, AppState, Notice, NoticeTarget } from './state';
 
 export type Dispatch = (event: AppEvent) => void;
+
+const nameOf = (group: Group, id: string): string => personName(group, id) ?? UNKNOWN_PERSON;
 
 export interface ViewContext {
   readonly state: AppState;
@@ -48,7 +51,7 @@ function renderStart({ state, dispatch }: ViewContext): HTMLElement {
       { class: 'panel stack', onsubmit, novalidate: true },
       noticeFor(state.notice, 'load'),
       h('label', { for: 'group-name' }, 'Vad ska ni dela på?'),
-      h('input', { id: 'group-name', name: 'name', type: 'text', placeholder: 'Fjällresan', maxlength: 40, autocomplete: 'off' }),
+      h('input', { id: 'group-name', name: 'name', type: 'text', placeholder: 'Fjällresan', maxlength: MAX_NAME_LENGTH, autocomplete: 'off' }),
       h('label', { for: 'group-people' }, 'Vilka är med?'),
       h('textarea', {
         id: 'group-people',
@@ -107,7 +110,7 @@ function renderPeople({ state, dispatch }: ViewContext, group: Group): HTMLEleme
       'form',
       { class: 'inline-form', onsubmit, novalidate: true },
       h('label', { for: 'person-name', class: 'visually-hidden' }, 'Namn på ny deltagare'),
-      h('input', { id: 'person-name', name: 'name', type: 'text', placeholder: 'Lägg till person', maxlength: 40, autocomplete: 'off' }),
+      h('input', { id: 'person-name', name: 'name', type: 'text', placeholder: 'Lägg till person', maxlength: MAX_NAME_LENGTH, autocomplete: 'off' }),
       h('button', { type: 'submit', class: 'button' }, 'Lägg till'),
     ),
     noticeFor(state.notice, 'person'),
@@ -151,7 +154,7 @@ function renderExpenseForm({ state, dispatch }: ViewContext, group: Group): HTML
           name: 'description',
           type: 'text',
           placeholder: 'Middag på Bistro',
-          maxlength: 80,
+          maxlength: MAX_DESCRIPTION_LENGTH,
           autocomplete: 'off',
           value: editing?.description,
         }),
@@ -218,7 +221,7 @@ function renderExpenseForm({ state, dispatch }: ViewContext, group: Group): HTML
 
 function describeSharing(group: Group, expense: Expense): string {
   if (expense.sharedBy.length === group.people.length && group.people.length > 1) return 'delas av alla';
-  const names = expense.sharedBy.map((id) => personName(group, id));
+  const names = expense.sharedBy.map((id) => nameOf(group, id));
   if (names.length === 1) return `för ${names[0]}`;
   return `delas av ${names.slice(0, -1).join(', ')} och ${names[names.length - 1]}`;
 }
@@ -234,7 +237,7 @@ function renderExpenses(context: ViewContext, group: Group): HTMLElement {
         'div',
         { class: 'expense-main' },
         h('span', { class: 'expense-title' }, expense.description),
-        h('span', { class: 'expense-meta' }, `${personName(group, expense.paidBy)} betalade, ${describeSharing(group, expense)}`),
+        h('span', { class: 'expense-meta' }, `${nameOf(group, expense.paidBy)} betalade, ${describeSharing(group, expense)}`),
       ),
       h('span', { class: 'amount' }, formatAmount(expense.amount)),
       h(
@@ -295,9 +298,9 @@ function renderReceipt(context: ViewContext, group: Group): HTMLElement {
               h(
                 'span',
                 { class: 'transfer-names' },
-                h('strong', {}, personName(group, t.from)),
+                h('strong', {}, nameOf(group, t.from)),
                 h('span', { class: 'transfer-verb' }, ' swishar '),
-                h('strong', {}, personName(group, t.to)),
+                h('strong', {}, nameOf(group, t.to)),
               ),
               h('span', { class: 'amount' }, formatAmount(t.amount)),
             ),
@@ -387,7 +390,7 @@ function renderGroup(context: ViewContext, group: Group): HTMLElement {
       class: 'group-title',
       type: 'text',
       value: group.name,
-      maxlength: 40,
+      maxlength: MAX_NAME_LENGTH,
       autocomplete: 'off',
       onchange: onRename,
     }),

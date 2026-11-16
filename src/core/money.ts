@@ -1,12 +1,15 @@
 /** Belopp i ören. Alla pengar i appen representeras som heltal. */
 export type Ore = number;
 
+/** Valutasuffix som folk ofta skriver efter ett belopp: "249 kr", "249:-", "249 SEK". */
+const CURRENCY_SUFFIX = /(kr\.?|sek|:-)$/i;
+
 /**
- * Tolkar ett belopp skrivet av en användare ("120", "120,50", "1 200.5")
+ * Tolkar ett belopp skrivet av en användare ("120", "120,50", "1 200.5", "249 kr", "249:-")
  * till ören. Returnerar null om strängen inte är ett giltigt, icke-negativt belopp.
  */
 export function parseAmount(input: string): Ore | null {
-  const cleaned = input.replace(/[\s ]/g, '').replace(',', '.');
+  const cleaned = input.replace(/[\s ]/g, '').replace(CURRENCY_SUFFIX, '').replace(',', '.');
   if (!/^\d+(\.\d{1,2})?$/.test(cleaned)) return null;
 
   const [kronor = '0', ore = ''] = cleaned.split('.');

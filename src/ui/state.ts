@@ -1,6 +1,7 @@
 import { addExpense, addPerson, createGroup, removeExpense, removePerson, renameGroup, updateExpense } from '../core/group';
 import { parseAmount } from '../core/money';
 import type { ExpenseId, ExpenseInput, Group, PersonId } from '../core/types';
+import { DEFAULT_GROUP_NAME, errorMessage } from './messages';
 
 export type NoticeTarget = 'create' | 'person' | 'expense' | 'share' | 'load';
 
@@ -52,10 +53,10 @@ function handleCreate(name: string, peopleText: string): AppState {
   if (names.length < 2) {
     return { ...initialState, notice: error('create', 'Skriv minst två namn, ett per rad.') };
   }
-  let group = createGroup(name);
+  let group = createGroup(name.trim() === '' ? DEFAULT_GROUP_NAME : name);
   for (const person of names) {
     const result = addPerson(group, person);
-    if (!result.ok) return { ...initialState, notice: error('create', result.error) };
+    if (!result.ok) return { ...initialState, notice: error('create', errorMessage(result.error)) };
     group = result.group;
   }
   return { ...initialState, group, focus: 'expense-description' };
@@ -75,7 +76,7 @@ function handleSaveExpense(state: AppState, group: Group, event: Extract<AppEven
   const result = state.editingExpenseId
     ? updateExpense(group, state.editingExpenseId, input)
     : addExpense(group, input);
-  if (!result.ok) return { ...state, notice: error('expense', result.error) };
+  if (!result.ok) return { ...state, notice: error('expense', errorMessage(result.error)) };
   return { group: result.group, editingExpenseId: null, notice: null, focus: 'expense-description' };
 }
 
@@ -95,7 +96,7 @@ export function update(state: AppState, event: AppEvent): AppState {
       return { ...base, group: renameGroup(group, event.name) };
     case 'addPerson': {
       const result = addPerson(group, event.name);
-      if (!result.ok) return { ...base, notice: error('person', result.error), focus: 'person-name' };
+      if (!result.ok) return { ...base, notice: error('person', errorMessage(result.error)), focus: 'person-name' };
       return { ...base, group: result.group, focus: 'person-name' };
     }
     case 'removePerson':

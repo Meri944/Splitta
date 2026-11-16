@@ -61,6 +61,15 @@ describe('update', () => {
     expect(s2.editingExpenseId).toBeNull();
   });
 
+  it('använder standardnamn när gruppnamnet är tomt', () => {
+    expect(update(initialState, { type: 'createGroup', name: '  ', peopleText: 'Anna\nErik' }).group?.name).toBe('Min grupp');
+  });
+
+  it('visar felmeddelandet på svenska', () => {
+    const next = update(initialState, { type: 'createGroup', name: 'X', peopleText: 'Anna\nanna' });
+    expect(next.notice?.text).toBe('anna finns redan i gruppen.');
+  });
+
   it('nollställer allt vid ny grupp', () => {
     expect(update(created(), { type: 'newGroup' }).group).toBeNull();
   });

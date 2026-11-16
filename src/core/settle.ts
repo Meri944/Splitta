@@ -38,6 +38,11 @@ export function settleDebts(balances: Balances): Transfer[] {
     if (match) pay(debtor, match, debtor.amount);
   }
 
+  // Fas 2: girig matchning. I varje varv tas den som är skyldig mest och den som ska ha mest,
+  // och den minsta av de två skulderna betalas. Minst en av dem hamnar då på 0 och försvinner,
+  // så loopen slutar efter högst (antal personer − 1) varv.
+  // Listorna sorteras om i varje varv eftersom beloppen ändras. Det är O(n² log n), vilket är
+  // försumbart vid högst 50 personer (MAX_PEOPLE) och håller koden enkel och deterministisk.
   for (;;) {
     const debtor = debtors.filter((d) => d.amount > 0).sort(largestFirst)[0];
     const creditor = creditors.filter((c) => c.amount > 0).sort(largestFirst)[0];

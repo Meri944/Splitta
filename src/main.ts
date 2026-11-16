@@ -1,9 +1,10 @@
 import './style.css';
 import type { Group } from './core/types';
 import { copyText } from './storage/clipboard';
-import { currentUrl, decodeGroup, encodeGroup, readHash, writeHash } from './storage/url';
+import { currentUrl, decodeGroup, encodeGroup, readHash, supportsLinkCompression, writeHash } from './storage/url';
 import type { AppState, Notice } from './ui/state';
 import { initialState } from './ui/state';
+import { SAVE_ERROR, UNSUPPORTED_BROWSER } from './ui/messages';
 import { createStore } from './ui/store';
 import { render, updateShareUrl } from './ui/view';
 
@@ -18,6 +19,9 @@ const LINK_ERROR: Notice = {
 async function loadFromHash(): Promise<AppState> {
   const hash = readHash();
   if (hash === '') return initialState;
+  if (!supportsLinkCompression()) {
+    return { ...initialState, notice: { target: 'load', kind: 'error', text: UNSUPPORTED_BROWSER } };
+  }
   const group = await decodeGroup(hash);
   return group ? { ...initialState, group } : { ...initialState, notice: LINK_ERROR };
 }
@@ -28,7 +32,10 @@ async function saveToHash(group: Group | null): Promise<void> {
 }
 
 async function start(root: HTMLElement): Promise<void> {
-  const store = createStore(await loadFromHash(), saveToHash);
+  const store = createStore(await loadFromHash(), saveToHash, (error) => {
+    console.error('Kunde inte spara gruppen i länken', error);
+    store.dispatch({ type: 'notify', notice: { target: 'share', kind: 'error', text: supportsLinkCompression() ? SAVE_ERROR : UNSUPPORTED_BROWSER } });
+  });
 
   const copyLink = async () => {
     await store.flush(); // så att den senaste versionen av länken kopieras
