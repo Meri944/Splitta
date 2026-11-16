@@ -638,3 +638,14 @@ input.group-title[type='text']:focus {
     animation: none !important;
   }
 }
+
+/* Frågan "Starta en ny grupp?" */
+.confirm {
+  margin-bottom: 1rem;
+  border-color: var(--accent);
+}
+
+.confirm-question {
+  font-weight: 650;
+  margin: 0;
+}
