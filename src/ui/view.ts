@@ -409,6 +409,15 @@ export function updateShareUrl(url: string): void {
   if (input instanceof HTMLInputElement) input.value = url;
 }
 
+/** Markerar länken i delningsfältet så att användaren kan kopiera den själv. */
+export function selectShareUrl(): void {
+  const input = document.getElementById('share-url');
+  if (input instanceof HTMLInputElement) {
+    input.focus();
+    input.select();
+  }
+}
+
 export function render(root: HTMLElement, context: ViewContext): void {
   const { group } = context.state;
   root.replaceChildren(group ? renderGroup(context, group) : renderStart(context));

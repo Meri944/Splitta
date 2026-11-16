@@ -12,6 +12,10 @@ export const SAVE_ERROR =
 export const UNSUPPORTED_BROWSER =
   'Din webbläsare är för gammal för Splitta-länkar. Uppdatera webbläsaren, eller öppna länken i en annan, så fungerar det.';
 
+/** Visas när webbläsaren inte tillåter kopiering. Länken markeras då åt användaren. */
+export const COPY_ERROR =
+  'Webbläsaren tillåter inte att Splitta kopierar. Länken är markerad, kopiera den med Ctrl+C (Cmd+C på Mac) eller håll in fältet på mobilen.';
+
 /** Visas när en person som inte längre finns i gruppen refereras. */
 export const UNKNOWN_PERSON = 'Okänd';
 
