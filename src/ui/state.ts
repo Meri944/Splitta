@@ -17,6 +17,8 @@ export interface AppState {
   readonly notice: Notice | null;
   /** Id på ett element som ska få fokus efter nästa rendering. */
   readonly focus: string | null;
+  /** Om frågan "Starta en ny grupp?" visas. */
+  readonly confirmingNewGroup: boolean;
 }
 
 export type AppEvent =
@@ -33,10 +35,12 @@ export type AppEvent =
     }
   | { readonly type: 'editExpense'; readonly id: ExpenseId | null }
   | { readonly type: 'removeExpense'; readonly id: ExpenseId }
+  | { readonly type: 'askNewGroup' }
+  | { readonly type: 'cancelNewGroup' }
   | { readonly type: 'newGroup' }
   | { readonly type: 'notify'; readonly notice: Notice | null };
 
-export const initialState: AppState = { group: null, editingExpenseId: null, notice: null, focus: null };
+export const initialState: AppState = { group: null, editingExpenseId: null, notice: null, focus: null, confirmingNewGroup: false };
 
 const error = (target: NoticeTarget, text: string): Notice => ({ target, kind: 'error', text });
 
@@ -77,16 +81,18 @@ function handleSaveExpense(state: AppState, group: Group, event: Extract<AppEven
     ? updateExpense(group, state.editingExpenseId, input)
     : addExpense(group, input);
   if (!result.ok) return { ...state, notice: error('expense', errorMessage(result.error)) };
-  return { group: result.group, editingExpenseId: null, notice: null, focus: 'expense-description' };
+  return { ...initialState, group: result.group, focus: 'expense-description' };
 }
 
 /** Ren funktion: räknar ut nästa tillstånd från ett tillstånd och en händelse. */
 export function update(state: AppState, event: AppEvent): AppState {
-  const base: AppState = { ...state, notice: null, focus: null };
+  const base: AppState = { ...state, notice: null, focus: null, confirmingNewGroup: false };
 
   if (event.type === 'createGroup') return handleCreate(event.name, event.peopleText);
   if (event.type === 'newGroup') return { ...initialState, focus: 'group-name' };
   if (event.type === 'notify') return { ...state, notice: event.notice, focus: null };
+  if (event.type === 'askNewGroup') return { ...base, confirmingNewGroup: true, focus: 'confirm-new-group' };
+  if (event.type === 'cancelNewGroup') return { ...base, focus: 'new-group' };
 
   const group = state.group;
   if (!group) return base;

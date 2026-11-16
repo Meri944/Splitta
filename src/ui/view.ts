@@ -362,13 +362,31 @@ function renderShare({ state, shareUrl, onCopyLink }: ViewContext): HTMLElement 
 
 /* ---------- Gruppvyn ---------- */
 
+/**
+ * Frågar innan gruppen lämnas. Visas i sidan i stället för window.confirm,
+ * som blockeras tyst i vissa inbäddade webbläsare (t.ex. Claude-appens webbläsarpanel).
+ */
+function renderNewGroupConfirm(dispatch: Dispatch): HTMLElement {
+  return h(
+    'div',
+    { id: 'new-group-confirm', class: 'panel confirm', role: 'group', 'aria-labelledby': 'new-group-question' },
+    h('p', { id: 'new-group-question', class: 'confirm-question' }, 'Starta en ny grupp?'),
+    h(
+      'p',
+      { class: 'hint' },
+      'Den här gruppen finns bara i sin länk. Kopiera länken först om du vill kunna komma tillbaka till den.',
+    ),
+    h(
+      'div',
+      { class: 'actions' },
+      h('button', { id: 'confirm-new-group', type: 'button', class: 'button primary', onclick: () => dispatch({ type: 'newGroup' }) }, 'Ja, starta ny grupp'),
+      h('button', { type: 'button', class: 'button ghost', onclick: () => dispatch({ type: 'cancelNewGroup' }) }, 'Avbryt'),
+    ),
+  );
+}
+
 function renderGroup(context: ViewContext, group: Group): HTMLElement {
   const { dispatch } = context;
-
-  const onNewGroup = () => {
-    const ok = window.confirm('Starta en ny grupp? Spara länken till den här gruppen först om du vill komma tillbaka till den.');
-    if (ok) dispatch({ type: 'newGroup' });
-  };
 
   const onRename = (event: Event) => {
     const input = event.currentTarget as HTMLInputElement;
@@ -382,8 +400,20 @@ function renderGroup(context: ViewContext, group: Group): HTMLElement {
       'header',
       { class: 'group-header' },
       h('span', { class: 'wordmark small' }, 'Splitta'),
-      h('button', { type: 'button', class: 'link-button', onclick: onNewGroup }, 'Ny grupp'),
+      h(
+        'button',
+        {
+          id: 'new-group',
+          type: 'button',
+          class: 'link-button',
+          'aria-expanded': String(context.state.confirmingNewGroup),
+          'aria-controls': 'new-group-confirm',
+          onclick: () => dispatch({ type: context.state.confirmingNewGroup ? 'cancelNewGroup' : 'askNewGroup' }),
+        },
+        'Ny grupp',
+      ),
     ),
+    context.state.confirmingNewGroup && renderNewGroupConfirm(dispatch),
     h('label', { for: 'group-title', class: 'visually-hidden' }, 'Gruppens namn'),
     h('input', {
       id: 'group-title',

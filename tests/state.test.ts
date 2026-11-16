@@ -70,7 +70,26 @@ describe('update', () => {
     expect(next.notice?.text).toBe('anna finns redan i gruppen.');
   });
 
+  it('frågar innan en ny grupp startas, och avbryt behåller gruppen', () => {
+    const asking = update(created(), { type: 'askNewGroup' });
+    expect(asking.confirmingNewGroup).toBe(true);
+    expect(asking.group).not.toBeNull();
+    expect(asking.focus).toBe('confirm-new-group');
+
+    const cancelled = update(asking, { type: 'cancelNewGroup' });
+    expect(cancelled.confirmingNewGroup).toBe(false);
+    expect(cancelled.group).toBe(asking.group);
+    expect(cancelled.focus).toBe('new-group');
+  });
+
+  it('stänger frågan om ny grupp vid annan ändring', () => {
+    const asking = update(created(), { type: 'askNewGroup' });
+    expect(update(asking, { type: 'addPerson', name: 'Leo' }).confirmingNewGroup).toBe(false);
+  });
+
   it('nollställer allt vid ny grupp', () => {
-    expect(update(created(), { type: 'newGroup' }).group).toBeNull();
+    const next = update(update(created(), { type: 'askNewGroup' }), { type: 'newGroup' });
+    expect(next.group).toBeNull();
+    expect(next.confirmingNewGroup).toBe(false);
   });
 });
