@@ -4,9 +4,9 @@ import { copyText } from './storage/clipboard';
 import { currentUrl, decodeGroup, encodeGroup, readHash, supportsLinkCompression, writeHash } from './storage/url';
 import type { AppState, Notice } from './ui/state';
 import { initialState } from './ui/state';
-import { SAVE_ERROR, UNSUPPORTED_BROWSER } from './ui/messages';
+import { COPY_ERROR, SAVE_ERROR, UNSUPPORTED_BROWSER } from './ui/messages';
 import { createStore } from './ui/store';
-import { render, updateShareUrl } from './ui/view';
+import { render, selectShareUrl, updateShareUrl } from './ui/view';
 
 /** Kopplar ihop lagren: länken (storage), tillståndet (store) och gränssnittet (view). */
 
@@ -44,8 +44,9 @@ async function start(root: HTMLElement): Promise<void> {
       type: 'notify',
       notice: ok
         ? { target: 'share', kind: 'info', text: 'Länken är kopierad.' }
-        : { target: 'share', kind: 'error', text: 'Kunde inte kopiera. Markera länken och kopiera den själv.' },
+        : { target: 'share', kind: 'error', text: COPY_ERROR },
     });
+    if (!ok) selectShareUrl();
   };
 
   const draw = (state: AppState) =>
